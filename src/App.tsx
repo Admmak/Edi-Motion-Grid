@@ -446,10 +446,9 @@ export default function App() {
     <div className="min-h-screen bg-app-bg text-zinc-900 flex flex-col items-center py-4 md:py-8 px-4">
       <header className="w-full max-w-7xl flex items-center justify-between mb-6 md:mb-8">
         <img 
-          src={new URL('./logo.png', import.meta.url).href} 
+          src={logo} 
           alt="Edi Logo" 
           className="h-8 md:h-10 w-auto" 
-          referrerPolicy="no-referrer" 
         />
         <span className="text-[10px] md:text-xs font-bold text-zinc-400 font-sans tracking-[0.2em] uppercase">
           Edi Motion Grid v.1.5
