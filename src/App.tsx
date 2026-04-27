@@ -4,7 +4,9 @@ import WebGLCanvas, { GridLines, MergedCell } from './components/WebGLCanvas';
 import { Tooltip } from './components/Tooltip';
 import { HelpModal } from './components/HelpModal';
 import { VideoExporter } from './utils/VideoExporter';
-import logo from './logo.png';
+
+// El logo se carga desde /public para asegurar que funcione en local y despliegues como Vercel
+const logo = '/logo.png';
 
 const GridPreview = ({ lines }: { lines: GridLines }) => {
   return (
@@ -993,6 +995,10 @@ export default function App() {
         </button>
         <p className="text-[10px] md:text-xs text-zinc-500 font-sans text-center">
           Aplicación desarrollada por <a href="mailto:adrianmarzal@gmail.com" className="text-zinc-400 hover:text-app-primary transition-colors font-bold underline decoration-zinc-400/30 underline-offset-4">Adrián Marzal</a> para la Escuela Superior de la Región de Murcia. 2026
+        </p>
+        <p className="text-[10px] md:text-xs text-zinc-400 font-sans text-center max-w-xl mt-2 px-4 italic">
+          Para usar esta app de forma local: Descarga el código de GitHub, instala las dependencias con <code className="bg-zinc-200 px-1 rounded">npm install</code> y lánzala con <code className="bg-zinc-200 px-1 rounded">npm run dev</code>. 
+          Si vas a desplegar en Vercel, asegúrate de que el archivo <code className="bg-zinc-200 px-1 rounded">logo.png</code> esté dentro de la carpeta <code className="bg-zinc-200 px-1 rounded">public/</code> en la raíz de tu proyecto.
         </p>
       </footer>
     </div>
