@@ -280,293 +280,173 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
         const mcId = key.replace('merged-', '');
         const mc = mergedCells.find(m => m.id === mcId);
         if (!mc) return null;
-        minI = mc.minI;
-        maxI = mc.maxI;
-        minJ = mc.minJ;
-        maxJ = mc.maxJ;
+        minI = mc.minI; maxI = mc.maxI; minJ = mc.minJ; maxJ = mc.maxJ;
       } else {
         const [iStr, jStr] = key.split('-');
-        minI = parseInt(iStr, 10);
-        maxI = minI + 1;
-        minJ = parseInt(jStr, 10);
-        maxJ = minJ + 1;
+        minI = parseInt(iStr, 10); maxI = minI + 1; minJ = parseInt(jStr, 10); maxJ = minJ + 1;
       }
       return { minI, maxI, minJ, maxJ };
     };
 
     if (lockedCellKey) {
-      let minI, maxI, minJ, maxJ;
-      
-      if (lockedCellKey.startsWith('merged-')) {
-        const mcId = lockedCellKey.replace('merged-', '');
-        const mc = mergedCells.find(m => m.id === mcId);
-        if (!mc) return;
-        minI = mc.minI;
-        maxI = mc.maxI;
-        minJ = mc.minJ;
-        maxJ = mc.maxJ;
-      } else {
-        const [iStr, jStr] = lockedCellKey.split('-');
-        minI = parseInt(iStr, 10);
-        maxI = minI + 1;
-        minJ = parseInt(jStr, 10);
-        maxJ = minJ + 1;
-      }
+      // Logic for dragging the interior of a locked cell (moves as a block)
+      let bounds = getCellBoundaries(lockedCellKey);
+      if (!bounds) return;
+      const { minI, maxI, minJ, maxJ } = bounds;
 
       let actualDeltaX = deltaX;
       let actualDeltaY = deltaY;
 
-      // If cell is at the edge, it cannot move in that axis without deforming
-      if (minI === 0 || maxI === startLines.v.length + 1) {
-        actualDeltaX = 0;
-      }
-      if (minJ === 0 || maxJ === startLines.h.length + 1) {
-        actualDeltaY = 0;
-      }
+      if (minI === 0 || maxI === startLines.v.length + 1) actualDeltaX = 0;
+      if (minJ === 0 || maxJ === startLines.h.length + 1) actualDeltaY = 0;
 
       if (actualDeltaX !== 0) {
         let newLeft = startLines.v[minI - 1] + actualDeltaX;
         let newRight = startLines.v[maxI - 1] + actualDeltaX;
-
         if (shouldSnap) {
           newLeft = Math.round(newLeft * 20) / 20;
           actualDeltaX = newLeft - startLines.v[minI - 1];
-          newRight = startLines.v[maxI - 1] + actualDeltaX;
         }
-
         const minLeft = minI > 1 ? startLines.v[minI - 2] + 0.005 : 0.005;
         const maxRight = maxI < startLines.v.length ? startLines.v[maxI] - 0.005 : 0.995;
-
-        if (newLeft < minLeft) {
-          actualDeltaX = minLeft - startLines.v[minI - 1];
-        } else if (newRight > maxRight) {
-          actualDeltaX = maxRight - startLines.v[maxI - 1];
-        }
+        if (newLeft < minLeft) actualDeltaX = minLeft - startLines.v[minI - 1];
+        else if (newRight > maxRight) actualDeltaX = maxRight - startLines.v[maxI - 1];
 
         for (let k = minI; k <= maxI; k++) {
-          if (k > 0 && k <= startLines.v.length) {
-            newLines.v[k - 1] = startLines.v[k - 1] + actualDeltaX;
-          }
+          if (k > 0 && k <= startLines.v.length) newLines.v[k - 1] = startLines.v[k - 1] + actualDeltaX;
         }
       }
 
       if (actualDeltaY !== 0) {
         let newTop = startLines.h[minJ - 1] + actualDeltaY;
         let newBottom = startLines.h[maxJ - 1] + actualDeltaY;
-
         if (shouldSnap) {
           newTop = Math.round(newTop * 20) / 20;
           actualDeltaY = newTop - startLines.h[minJ - 1];
-          newBottom = startLines.h[maxJ - 1] + actualDeltaY;
         }
-
         const minTop = minJ > 1 ? startLines.h[minJ - 2] + 0.005 : 0.005;
         const maxBottom = maxJ < startLines.h.length ? startLines.h[maxJ] - 0.005 : 0.995;
-
-        if (newTop < minTop) {
-          actualDeltaY = minTop - startLines.h[minJ - 1];
-        } else if (newBottom > maxBottom) {
-          actualDeltaY = maxBottom - startLines.h[maxJ - 1];
-        }
+        if (newTop < minTop) actualDeltaY = minTop - startLines.h[minJ - 1];
+        else if (newBottom > maxBottom) actualDeltaY = maxBottom - startLines.h[maxJ - 1];
 
         for (let k = minJ; k <= maxJ; k++) {
-          if (k > 0 && k <= startLines.h.length) {
-            newLines.h[k - 1] = startLines.h[k - 1] + actualDeltaY;
-          }
+          if (k > 0 && k <= startLines.h.length) newLines.h[k - 1] = startLines.h[k - 1] + actualDeltaY;
         }
       }
     } else {
-      if (vIndices.length > 0) {
-        const isInternalLineV = (index: number) => {
-          return lockedCells.some(key => {
-            if (key.startsWith('merged-')) {
-              const mcId = key.replace('merged-', '');
-              const mc = mergedCells.find(m => m.id === mcId);
-              if (!mc) return false;
-              return index >= mc.minI && index < mc.maxI - 1;
-            }
-            return false;
-          });
-        };
-
-        // Filter out internal lines of locked cells, allow boundaries to be moved
-        const movableV = vIndices.filter(idx => !isInternalLineV(idx));
-
-        if (movableV.length > 0) {
-          const sortedV = [...movableV].sort((a, b) => deltaX > 0 ? b - a : a - b);
-          sortedV.forEach(idx => {
-            let newVal = startLines.v[idx] + deltaX;
-            if (shouldSnap) newVal = Math.round(newVal * 20) / 20;
-            
-            let minIdx = idx - 1;
-            while (minIdx >= 0 && isInternalLineV(minIdx)) minIdx--;
-            const minVal = minIdx >= 0 ? newLines.v[minIdx] : 0;
-            const min = minVal + 0.005 * (idx - minIdx);
-
-            let maxIdx = idx + 1;
-            while (maxIdx < newLines.v.length && isInternalLineV(maxIdx)) maxIdx++;
-            const maxVal = maxIdx < newLines.v.length ? newLines.v[maxIdx] : 1;
-            const max = maxVal - 0.005 * (maxIdx - idx);
-
-            newLines.v[idx] = Math.max(min, Math.min(max, newVal));
-          });
-        }
-      }
-
-      if (hIndices.length > 0) {
-        const isInternalLineH = (index: number) => {
-          return lockedCells.some(key => {
-            if (key.startsWith('merged-')) {
-              const mcId = key.replace('merged-', '');
-              const mc = mergedCells.find(m => m.id === mcId);
-              if (!mc) return false;
-              return index >= mc.minJ && index < mc.maxJ - 1;
-            }
-            return false;
-          });
-        };
-
-        // Filter out internal lines of locked cells, allow boundaries to be moved
-        const movableH = hIndices.filter(idx => !isInternalLineH(idx));
-
-        if (movableH.length > 0) {
-          const sortedH = [...movableH].sort((a, b) => deltaY > 0 ? b - a : a - b);
-          sortedH.forEach(idx => {
-            let newVal = startLines.h[idx] + deltaY;
-            if (shouldSnap) newVal = Math.round(newVal * 20) / 20;
-            
-            let minIdx = idx - 1;
-            while (minIdx >= 0 && isInternalLineH(minIdx)) minIdx--;
-            const minVal = minIdx >= 0 ? newLines.h[minIdx] : 0;
-            const min = minVal + 0.005 * (idx - minIdx);
-
-            let maxIdx = idx + 1;
-            while (maxIdx < newLines.h.length && isInternalLineH(maxIdx)) maxIdx++;
-            const maxVal = maxIdx < newLines.h.length ? newLines.h[maxIdx] : 1;
-            const max = maxVal - 0.005 * (maxIdx - idx);
-
-            newLines.h[idx] = Math.max(min, Math.min(max, newVal));
-          });
-        }
-      }
-
-      // Proportional resizing for locked cells when boundaries are dragged
-      const isDraggingVOnly = vIndices.length > 0 && hIndices.length === 0;
-      const isDraggingHOnly = hIndices.length > 0 && vIndices.length === 0;
-
-      if (isDraggingVOnly) {
-        lockedCells.forEach(key => {
-          const bounds = getCellBoundaries(key);
-          if (!bounds) return;
-          const { minI, maxI, minJ, maxJ } = bounds;
-          const isLeftDragged = vIndices.includes(minI - 1);
-          const isRightDragged = vIndices.includes(maxI - 1);
-
-          if (isLeftDragged || isRightDragged) {
-            const startLeft = minI > 0 ? startLines.v[minI - 1] : 0;
-            const startRight = maxI <= startLines.v.length ? startLines.v[maxI - 1] : 1;
-            const startTop = minJ > 0 ? startLines.h[minJ - 1] : 0;
-            const startBottom = maxJ <= startLines.h.length ? startLines.h[maxJ - 1] : 1;
-            const startWidth = startRight - startLeft;
-            const startHeight = startBottom - startTop;
-            if (startWidth <= 0 || startHeight <= 0) return;
-            const aspectRatio = startWidth / startHeight;
-
-            // 1. Calculate desired height change based on current width change
-            const currentLeft = minI > 0 ? newLines.v[minI - 1] : 0;
-            const currentRight = maxI <= newLines.v.length ? newLines.v[maxI - 1] : 1;
-            const currentWidth = currentRight - currentLeft;
-            const targetHeight = currentWidth / aspectRatio;
-            const heightDiff = targetHeight - startHeight;
-
-            // 2. Apply height change to boundaries, respecting constraints
-            let actualHeightDiff = heightDiff;
-            if (maxJ <= newLines.h.length) {
-              let newVal = startBottom + heightDiff;
-              const min = (minJ > 0 ? newLines.h[minJ - 1] : 0) + 0.01;
-              const max = maxJ < newLines.h.length ? newLines.h[maxJ] - 0.005 : 0.995;
-              const clampedVal = Math.max(min, Math.min(max, newVal));
-              newLines.h[maxJ - 1] = clampedVal;
-              actualHeightDiff = clampedVal - startBottom;
-            } else if (minJ > 0) {
-              let newVal = startTop - heightDiff;
-              const min = minJ > 1 ? newLines.h[minJ - 2] + 0.005 : 0.005;
-              const max = (maxJ <= newLines.h.length ? newLines.h[maxJ - 1] : 1) - 0.01;
-              const clampedVal = Math.max(min, Math.min(max, newVal));
-              newLines.h[minJ - 1] = clampedVal;
-              actualHeightDiff = startTop - clampedVal;
-            }
-
-            // 3. Re-adjust width to match the actual height achieved (strict proportionality)
-            const actualWidthDiff = actualHeightDiff * aspectRatio;
-            if (isRightDragged && maxI <= newLines.v.length) {
-              newLines.v[maxI - 1] = startRight + actualWidthDiff;
-            } else if (isLeftDragged && minI > 0) {
-              newLines.v[minI - 1] = startLeft - actualWidthDiff;
-            }
-          }
+      // Normal dragging of lines
+      const isInternalLineV = (index: number) => {
+        return lockedCells.some(key => {
+          const b = getCellBoundaries(key);
+          if (!b) return false;
+          return index >= b.minI && index < b.maxI - 1;
         });
-      } else if (isDraggingHOnly) {
-        lockedCells.forEach(key => {
-          const bounds = getCellBoundaries(key);
-          if (!bounds) return;
-          const { minI, maxI, minJ, maxJ } = bounds;
-          const isTopDragged = hIndices.includes(minJ - 1);
-          const isBottomDragged = hIndices.includes(maxJ - 1);
+      };
+      const isInternalLineH = (index: number) => {
+        return lockedCells.some(key => {
+          const b = getCellBoundaries(key);
+          if (!b) return false;
+          return index >= b.minJ && index < b.maxJ - 1;
+        });
+      };
 
-          if (isTopDragged || isBottomDragged) {
-            const startLeft = minI > 0 ? startLines.v[minI - 1] : 0;
-            const startRight = maxI <= startLines.v.length ? startLines.v[maxI - 1] : 1;
-            const startTop = minJ > 0 ? startLines.h[minJ - 1] : 0;
-            const startBottom = maxJ <= startLines.h.length ? startLines.h[maxJ - 1] : 1;
-            const startWidth = startRight - startLeft;
-            const startHeight = startBottom - startTop;
-            if (startWidth <= 0 || startHeight <= 0) return;
-            const aspectRatio = startWidth / startHeight;
+      const movableV = vIndices.filter(idx => !isInternalLineV(idx));
+      const movableH = hIndices.filter(idx => !isInternalLineH(idx));
 
-            // 1. Calculate desired width change based on current height change
-            const currentTop = minJ > 0 ? newLines.h[minJ - 1] : 0;
-            const currentBottom = maxJ <= newLines.h.length ? newLines.h[maxJ - 1] : 1;
-            const currentHeight = currentBottom - currentTop;
-            const targetWidth = currentHeight * aspectRatio;
-            const widthDiff = targetWidth - startWidth;
-
-            // 2. Apply width change to boundaries, respecting constraints
-            let actualWidthDiff = widthDiff;
-            if (maxI <= newLines.v.length) {
-              let newVal = startRight + widthDiff;
-              const min = (minI > 0 ? newLines.v[minI - 1] : 0) + 0.01;
-              const max = maxI < newLines.v.length ? newLines.v[maxI] - 0.005 : 0.995;
-              const clampedVal = Math.max(min, Math.min(max, newVal));
-              newLines.v[maxI - 1] = clampedVal;
-              actualWidthDiff = clampedVal - startRight;
-            } else if (minI > 0) {
-              let newVal = startLeft - widthDiff;
-              const min = minI > 1 ? newLines.v[minI - 2] + 0.005 : 0.005;
-              const max = (maxI <= newLines.v.length ? newLines.v[maxI - 1] : 1) - 0.01;
-              const clampedVal = Math.max(min, Math.min(max, newVal));
-              newLines.v[minI - 1] = clampedVal;
-              actualWidthDiff = startLeft - clampedVal;
-            }
-
-            // 3. Re-adjust height to match the actual width achieved (strict proportionality)
-            const actualHeightDiff = actualWidthDiff / aspectRatio;
-            if (isBottomDragged && maxJ <= newLines.h.length) {
-              newLines.h[maxJ - 1] = startBottom + actualHeightDiff;
-            } else if (isTopDragged && minJ > 0) {
-              newLines.h[minJ - 1] = startTop - actualHeightDiff;
-            }
-          }
+      if (movableV.length > 0) {
+        const sortedV = [...movableV].sort((a, b) => deltaX > 0 ? b - a : a - b);
+        sortedV.forEach(idx => {
+          let newVal = startLines.v[idx] + deltaX;
+          if (shouldSnap) newVal = Math.round(newVal * 20) / 20;
+          let minIdx = idx - 1;
+          while (minIdx >= 0 && isInternalLineV(minIdx)) minIdx--;
+          const min = (minIdx >= 0 ? newLines.v[minIdx] : 0) + 0.005;
+          let maxIdx = idx + 1;
+          while (maxIdx < newLines.v.length && isInternalLineV(maxIdx)) maxIdx++;
+          const max = (maxIdx < newLines.v.length ? newLines.v[maxIdx] : 1) - 0.005;
+          newLines.v[idx] = Math.max(min, Math.min(max, newVal));
         });
       }
+
+      if (movableH.length > 0) {
+        const sortedH = [...movableH].sort((a, b) => deltaY > 0 ? b - a : a - b);
+        sortedH.forEach(idx => {
+          let newVal = startLines.h[idx] + deltaY;
+          if (shouldSnap) newVal = Math.round(newVal * 20) / 20;
+          let minIdx = idx - 1;
+          while (minIdx >= 0 && isInternalLineH(minIdx)) minIdx--;
+          const min = (minIdx >= 0 ? newLines.h[minIdx] : 0) + 0.005;
+          let maxIdx = idx + 1;
+          while (maxIdx < newLines.h.length && isInternalLineH(maxIdx)) maxIdx++;
+          const max = (maxIdx < newLines.h.length ? newLines.h[maxIdx] : 1) - 0.005;
+          newLines.h[idx] = Math.max(min, Math.min(max, newVal));
+        });
+      }
+
+      // Proportional cross-scaling for locked cells
+      lockedCells.forEach(key => {
+        const bounds = getCellBoundaries(key);
+        if (!bounds) return;
+        const { minI, maxI, minJ, maxJ } = bounds;
+
+        const leftIdx = minI - 1; const rightIdx = maxI - 1;
+        const topIdx = minJ - 1; const bottomIdx = maxJ - 1;
+
+        const isLeftD = vIndices.includes(leftIdx); const isRightD = vIndices.includes(rightIdx);
+        const isTopD = hIndices.includes(topIdx); const isBottomD = hIndices.includes(bottomIdx);
+
+        if (isLeftD || isRightD || isTopD || isBottomD) {
+          const sL = minI > 0 ? startLines.v[leftIdx] : 0;
+          const sR = maxI <= startLines.v.length ? startLines.v[rightIdx] : 1;
+          const sT = minJ > 0 ? startLines.h[topIdx] : 0;
+          const sB = maxJ <= startLines.h.length ? startLines.h[bottomIdx] : 1;
+          const sW = sR - sL; const sH = sB - sT;
+          if (sW <= 0 || sH <= 0) return;
+          const ratio = sW / sH;
+
+          // Current state after independent drags
+          let cL = minI > 0 ? newLines.v[leftIdx] : 0;
+          let cR = maxI <= newLines.v.length ? newLines.v[rightIdx] : 1;
+          let cT = minJ > 0 ? newLines.h[topIdx] : 0;
+          let cB = maxJ <= newLines.h.length ? newLines.h[bottomIdx] : 1;
+
+          // Determine which axis changed most or which one should drive
+          const dW = (cR - cL) - sW;
+          const dH = (cB - cT) - sH;
+
+          if (Math.abs(dW) >= Math.abs(dH * ratio)) {
+            // Width drives height
+            const targetH = (cR - cL) / ratio;
+            const diffH = targetH - sH;
+            if (isBottomD && bottomIdx < newLines.h.length) {
+              newLines.h[bottomIdx] = Math.max(cT + 0.01, Math.min(bottomIdx < newLines.h.length - 1 ? newLines.h[bottomIdx + 1] - 0.005 : 1, sB + diffH));
+            } else if (isTopD && topIdx >= 0) {
+              newLines.h[topIdx] = Math.max(topIdx > 0 ? newLines.h[topIdx - 1] + 0.005 : 0, sT - diffH);
+            } else if (bottomIdx < newLines.h.length) { // Auto-adjust bottom if nothing else
+              newLines.h[bottomIdx] = Math.max(cT + 0.01, Math.min(bottomIdx < newLines.h.length - 1 ? newLines.h[bottomIdx + 1] - 0.005 : 1, sB + diffH));
+            }
+          } else {
+            // Height drives width
+            const targetW = (cB - cT) * ratio;
+            const diffW = targetW - sW;
+            if (isRightD && rightIdx < newLines.v.length) {
+              newLines.v[rightIdx] = Math.max(cL + 0.01, Math.min(rightIdx < newLines.v.length - 1 ? newLines.v[rightIdx + 1] - 0.005 : 1, sR + diffW));
+            } else if (isLeftD && leftIdx >= 0) {
+              newLines.v[leftIdx] = Math.max(leftIdx > 0 ? newLines.v[leftIdx - 1] + 0.005 : 0, sL - diffW);
+            } else if (rightIdx < newLines.v.length) {
+              newLines.v[rightIdx] = Math.max(cL + 0.01, Math.min(rightIdx < newLines.v.length - 1 ? newLines.v[rightIdx + 1] - 0.005 : 1, sR + diffW));
+            }
+          }
+        }
+      });
     }
-    
-    // Proportional scaling for internal lines of locked cells
-    lockedCells.forEach(key => {
-      if (key.startsWith('merged-')) {
-        const mcId = key.replace('merged-', '');
-        const mc = mergedCells.find(m => m.id === mcId);
-        if (!mc) return;
+
+    // Proportional scaling for internal lines of merged/locked cells
+    [...mergedCells, ...lockedCells.filter(k => k.startsWith('merged-')).map(k => {
+      const id = k.replace('merged-', '');
+      return mergedCells.find(m => m.id === id);
+    }).filter(m => !!m)].forEach(mc => {
+      if (!mc) return;
         
         // Vertical internal lines
         const startLeft = mc.minI > 0 ? startLines.v[mc.minI - 1] : 0;
@@ -601,7 +481,6 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
             newLines.h[idx] = newTop + ratio * newHeight;
           }
         }
-      }
     });
     
     render(newLines);
