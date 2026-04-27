@@ -1,0 +1,5 @@
+{
+  "name": "Remix: Edi Motion Grid v.1.5",
+  "description": "Sube una imagen y defórmala usando una rejilla, luego exporta la animación como un vídeo MP4.",
+  "requestFramePermissions": []
+}

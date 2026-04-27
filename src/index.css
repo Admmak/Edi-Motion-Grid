@@ -1,0 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-app-bg: #e2e7e7;
+  --color-app-primary: #f96100;
+  --color-app-secondary: #3571ab;
+  --color-app-accent: #b9f301;
+  
+  @keyframes cell-pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.5; }
+  }
+}
+
+.animate-cell-pulse {
+  animation: cell-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
