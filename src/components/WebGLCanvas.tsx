@@ -307,8 +307,8 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
           newLeft = Math.round(newLeft * 20) / 20;
           actualDeltaX = newLeft - startLines.v[minI - 1];
         }
-        const minLeft = minI > 1 ? startLines.v[minI - 2] + 0.005 : 0.005;
-        const maxRight = maxI < startLines.v.length ? startLines.v[maxI] - 0.005 : 0.995;
+        const minLeft = minI > 1 ? startLines.v[minI - 2] + 0.005 : 0;
+        const maxRight = maxI < startLines.v.length ? startLines.v[maxI] - 0.005 : 1;
         if (newLeft < minLeft) actualDeltaX = minLeft - startLines.v[minI - 1];
         else if (newRight > maxRight) actualDeltaX = maxRight - startLines.v[maxI - 1];
 
@@ -324,8 +324,8 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
           newTop = Math.round(newTop * 20) / 20;
           actualDeltaY = newTop - startLines.h[minJ - 1];
         }
-        const minTop = minJ > 1 ? startLines.h[minJ - 2] + 0.005 : 0.005;
-        const maxBottom = maxJ < startLines.h.length ? startLines.h[maxJ] - 0.005 : 0.995;
+        const minTop = minJ > 1 ? startLines.h[minJ - 2] + 0.005 : 0;
+        const maxBottom = maxJ < startLines.h.length ? startLines.h[maxJ] - 0.005 : 1;
         if (newTop < minTop) actualDeltaY = minTop - startLines.h[minJ - 1];
         else if (newBottom > maxBottom) actualDeltaY = maxBottom - startLines.h[maxJ - 1];
 
@@ -360,10 +360,10 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
           if (shouldSnap) newVal = Math.round(newVal * 20) / 20;
           let minIdx = idx - 1;
           while (minIdx >= 0 && isInternalLineV(minIdx)) minIdx--;
-          const min = (minIdx >= 0 ? newLines.v[minIdx] : 0) + 0.005;
+          const min = minIdx >= 0 ? newLines.v[minIdx] + 0.005 : 0;
           let maxIdx = idx + 1;
           while (maxIdx < newLines.v.length && isInternalLineV(maxIdx)) maxIdx++;
-          const max = (maxIdx < newLines.v.length ? newLines.v[maxIdx] : 1) - 0.005;
+          const max = maxIdx < newLines.v.length ? newLines.v[maxIdx] - 0.005 : 1;
           newLines.v[idx] = Math.max(min, Math.min(max, newVal));
         });
       }
@@ -375,10 +375,10 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
           if (shouldSnap) newVal = Math.round(newVal * 20) / 20;
           let minIdx = idx - 1;
           while (minIdx >= 0 && isInternalLineH(minIdx)) minIdx--;
-          const min = (minIdx >= 0 ? newLines.h[minIdx] : 0) + 0.005;
+          const min = minIdx >= 0 ? newLines.h[minIdx] + 0.005 : 0;
           let maxIdx = idx + 1;
           while (maxIdx < newLines.h.length && isInternalLineH(maxIdx)) maxIdx++;
-          const max = (maxIdx < newLines.h.length ? newLines.h[maxIdx] : 1) - 0.005;
+          const max = maxIdx < newLines.h.length ? newLines.h[maxIdx] - 0.005 : 1;
           newLines.h[idx] = Math.max(min, Math.min(max, newVal));
         });
       }
@@ -687,7 +687,7 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
                 className="absolute top-0 bottom-0 w-8 -ml-4 flex justify-center group z-10 pointer-events-none"
                 style={{ left: `${v * 100}%` }}
               >
-                <div className="w-0.5 h-full bg-transparent" />
+                <div className="w-[1px] h-full bg-transparent" />
                 {vy.slice(0, -1).map((yStart, j) => {
                   const isInside = mergedCells.some(mc => 
                     vxIndex > mc.minI && vxIndex < mc.maxI && j >= mc.minJ && j < mc.maxJ
@@ -706,7 +706,7 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
                         handlePointerDown([i], [])(e);
                       }}
                     >
-                      <div className={`w-0.5 h-full shadow-[0_0_4px_rgba(0,0,0,0.2)] ${isSelected ? 'bg-app-primary scale-x-150 border-transparent' : 'bg-black/85 group-hover:bg-black'}`} />
+                      <div className={`w-[1px] h-full shadow-[0_0_4px_rgba(0,0,0,0.2)] ${isSelected ? 'bg-app-primary scale-x-150 border-transparent' : 'bg-black/85 group-hover:bg-black'}`} />
                     </div>
                   );
                 })}
@@ -724,7 +724,7 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
                 className="absolute left-0 right-0 h-8 -mt-4 flex items-center group z-10 pointer-events-none"
                 style={{ top: `${h * 100}%` }}
               >
-                <div className="h-0.5 w-full bg-transparent" />
+                <div className="h-[1px] w-full bg-transparent" />
                 {vx.slice(0, -1).map((xStart, j) => {
                   const isInside = mergedCells.some(mc => 
                     vyIndex > mc.minJ && vyIndex < mc.maxJ && j >= mc.minI && j < mc.maxI
@@ -743,7 +743,7 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
                         handlePointerDown([], [i])(e);
                       }}
                     >
-                      <div className={`h-0.5 w-full shadow-[0_0_4px_rgba(0,0,0,0.2)] ${isSelected ? 'bg-app-primary scale-y-150 border-transparent' : 'bg-black/85 group-hover:bg-black'}`} />
+                      <div className={`h-[1px] w-full shadow-[0_0_4px_rgba(0,0,0,0.2)] ${isSelected ? 'bg-app-primary scale-y-150 border-transparent' : 'bg-black/85 group-hover:bg-black'}`} />
                     </div>
                   );
                 })}
