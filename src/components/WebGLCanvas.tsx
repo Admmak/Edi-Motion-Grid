@@ -30,9 +30,10 @@ interface WebGLCanvasProps {
   mergedCells?: MergedCell[];
   selectedCells?: string[];
   onSelectCell?: (cellKey: string, multi: boolean) => void;
+  className?: string;
 }
 
-export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = false, lines, sourceLines, onLinesChange, onLinesChangeEnd, resolution, isPointerMode = false, lockedCells = [], onToggleLock, mergedCells = [], selectedCells = [], onSelectCell }: WebGLCanvasProps) {
+export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = false, lines, sourceLines, onLinesChange, onLinesChangeEnd, resolution, isPointerMode = false, lockedCells = [], onToggleLock, mergedCells = [], selectedCells = [], onSelectCell, className = '' }: WebGLCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -65,6 +66,14 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
       // Ensure even dimensions for video encoding
       targetWidth = Math.floor(targetWidth / 2) * 2;
       targetHeight = Math.floor(targetHeight / 2) * 2;
+      
+      // Max size for actual canvas processing (to avoid memory crashes on mobile)
+      const maxCanvasSize = 3000;
+      if (targetWidth > maxCanvasSize || targetHeight > maxCanvasSize) {
+        const clampRatio = Math.min(maxCanvasSize / targetWidth, maxCanvasSize / targetHeight);
+        targetWidth = Math.floor((targetWidth * clampRatio) / 2) * 2;
+        targetHeight = Math.floor((targetHeight * clampRatio) / 2) * 2;
+      }
       
       // Calculate display size fitting within max bounds (e.g., 800x800)
       const maxWidth = 800;
@@ -510,8 +519,12 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
   return (
     <div 
       ref={containerRef}
-      className={`relative touch-none select-none ${isPointerMode ? 'cursor-crosshair' : ''}`}
-      style={{ width: dimensions.width, height: dimensions.height }}
+      className={`relative touch-none select-none ${isPointerMode ? 'cursor-crosshair' : ''} ${className}`}
+      style={{ 
+        width: '100%', 
+        maxWidth: dimensions.width > 0 ? dimensions.width : 'none',
+        aspectRatio: dimensions.width && dimensions.height ? `${dimensions.width} / ${dimensions.height}` : 'auto'
+      }}
       onPointerDown={handleContainerPointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -832,12 +845,22 @@ function initWebGL(gl: WebGLRenderingContext, image: HTMLImageElement) {
   
   // Use an intermediate canvas to load the image into the texture.
   // This helps with CORS/Security restrictions when running from file://
+  const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+  let uploadWidth = image.width;
+  let uploadHeight = image.height;
+  
+  if (uploadWidth > maxTextureSize || uploadHeight > maxTextureSize) {
+    const ratio = Math.min(maxTextureSize / uploadWidth, maxTextureSize / uploadHeight);
+    uploadWidth = Math.floor(uploadWidth * ratio);
+    uploadHeight = Math.floor(uploadHeight * ratio);
+  }
+
   const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = image.width;
-  tempCanvas.height = image.height;
+  tempCanvas.width = uploadWidth;
+  tempCanvas.height = uploadHeight;
   const ctx = tempCanvas.getContext('2d');
   if (ctx) {
-    ctx.drawImage(image, 0, 0);
+    ctx.drawImage(image, 0, 0, uploadWidth, uploadHeight);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tempCanvas);
   } else {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);

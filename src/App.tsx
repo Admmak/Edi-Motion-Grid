@@ -7,15 +7,23 @@ import { VideoExporter } from './utils/VideoExporter';
 
 import logo from './logo.png';
 
-const GridPreview = ({ lines }: { lines: GridLines }) => {
+const GridPreview = ({ lines, thumbnail, aspectRatio = 1 }: { lines: GridLines; thumbnail?: string; aspectRatio?: number }) => {
   return (
-    <div className="w-full aspect-square bg-zinc-200/50 border border-zinc-200 relative overflow-hidden pointer-events-none">
-      {lines.v.map((v, i) => (
-        <div key={`v-${i}`} className="absolute top-0 bottom-0 w-[0.5px] bg-zinc-400" style={{ left: `${v * 100}%` }} />
-      ))}
-      {lines.h.map((h, i) => (
-        <div key={`h-${i}`} className="absolute left-0 right-0 h-[0.5px] bg-zinc-400" style={{ top: `${h * 100}%` }} />
-      ))}
+    <div 
+      className="w-full bg-zinc-200/50 border border-zinc-200 relative overflow-hidden pointer-events-none"
+      style={{ aspectRatio: String(aspectRatio) }}
+    >
+      {thumbnail && (
+        <img src={thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-80" alt="Preview" />
+      )}
+      <div className="absolute inset-0 mix-blend-difference opacity-50">
+        {lines.v.map((v, i) => (
+          <div key={`v-${i}`} className="absolute top-0 bottom-0 w-[0.5px] bg-white" style={{ left: `${v * 100}%` }} />
+        ))}
+        {lines.h.map((h, i) => (
+          <div key={`h-${i}`} className="absolute left-0 right-0 h-[0.5px] bg-white" style={{ top: `${h * 100}%` }} />
+        ))}
+      </div>
     </div>
   );
 };
@@ -29,7 +37,7 @@ export default function App() {
   
   const defaultLines: GridLines = { v: [1/3, 2/3], h: [1/3, 2/3] };
   const [lines, setLines] = useState<GridLines>(defaultLines);
-  const [keyframes, setKeyframes] = useState<{ lines: GridLines; pause: number }[]>([]);
+  const [keyframes, setKeyframes] = useState<{ lines: GridLines; pause: number; thumbnail?: string }[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
   const [defaultPause, setDefaultPause] = useState(1000);
   const [resolutionStr, setResolutionStr] = useState<string>('null');
@@ -44,11 +52,11 @@ export default function App() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   
   const [historyState, setHistoryState] = useState({
-    history: [{ lines: defaultLines, lockedCells: [], mergedCells: [] as MergedCell[], keyframes: [] as { lines: GridLines; pause: number }[] }],
+    history: [{ lines: defaultLines, lockedCells: [], mergedCells: [] as MergedCell[], keyframes: [] as { lines: GridLines; pause: number; thumbnail?: string }[] }],
     index: 0
   });
 
-  const commitHistory = useCallback((newLines: GridLines, newLockedCells: string[], newMergedCells: MergedCell[], newKeyframes?: { lines: GridLines; pause: number }[]) => {
+  const commitHistory = useCallback((newLines: GridLines, newLockedCells: string[], newMergedCells: MergedCell[], newKeyframes?: { lines: GridLines; pause: number; thumbnail?: string }[]) => {
     setHistoryState(prev => {
       const lastEntry = prev.history[prev.index];
       const kfsToSave = newKeyframes || lastEntry.keyframes;
@@ -483,37 +491,36 @@ export default function App() {
           <div className="flex flex-col lg:flex-row items-start justify-center w-full gap-4 md:gap-8">
             {/* Left Column: Image */}
             <div className="flex-1 flex justify-center w-full lg:sticky lg:top-4">
-              <div className={`relative bg-white rounded-none shadow-2xl border border-zinc-200 ${isAnimating ? 'pointer-events-none' : ''}`}>
-                <WebGLCanvas 
-                  imageSrc={imageSrc} 
-                  onCanvasReady={(canvas) => canvasRef.current = canvas} 
-                  snapToGrid={snapToGrid} 
-                  lines={lines}
-                  sourceLines={sourceLines}
-                  onLinesChange={setLines}
-                  onLinesChangeEnd={(newLines) => commitHistory(newLines, lockedCells, mergedCells)}
-                  resolution={resolutionStr === 'null' ? null : JSON.parse(resolutionStr)}
-                  isPointerMode={isPointerMode}
-                  lockedCells={lockedCells}
-                  mergedCells={mergedCells}
-                  selectedCells={selectedCells}
-                  onSelectCell={(cellKey, multi) => {
-                    setSelectedCells(prev => {
-                      if (multi) {
-                        return prev.includes(cellKey) ? prev.filter(k => k !== cellKey) : [...prev, cellKey];
-                      }
-                      return cellKey ? [cellKey] : [];
-                    });
-                  }}
-                  onToggleLock={(key) => {
-                    const newLockedCells = lockedCells.includes(key) 
-                      ? lockedCells.filter(k => k !== key) 
-                      : [...lockedCells, key];
-                    setLockedCells(newLockedCells);
-                    commitHistory(lines, newLockedCells, mergedCells);
-                  }}
-                />
-              </div>
+              <WebGLCanvas 
+                imageSrc={imageSrc} 
+                onCanvasReady={(canvas) => canvasRef.current = canvas} 
+                snapToGrid={snapToGrid} 
+                lines={lines}
+                sourceLines={sourceLines}
+                onLinesChange={setLines}
+                onLinesChangeEnd={(newLines) => commitHistory(newLines, lockedCells, mergedCells)}
+                resolution={resolutionStr === 'null' ? null : JSON.parse(resolutionStr)}
+                isPointerMode={isPointerMode}
+                lockedCells={lockedCells}
+                mergedCells={mergedCells}
+                selectedCells={selectedCells}
+                onSelectCell={(cellKey, multi) => {
+                  setSelectedCells(prev => {
+                    if (multi) {
+                      return prev.includes(cellKey) ? prev.filter(k => k !== cellKey) : [...prev, cellKey];
+                    }
+                    return cellKey ? [cellKey] : [];
+                  });
+                }}
+                onToggleLock={(key) => {
+                  const newLockedCells = lockedCells.includes(key) 
+                    ? lockedCells.filter(k => k !== key) 
+                    : [...lockedCells, key];
+                  setLockedCells(newLockedCells);
+                  commitHistory(lines, newLockedCells, mergedCells);
+                }}
+                className={`bg-white rounded-none shadow-2xl border border-zinc-200 overflow-hidden ${isAnimating ? 'pointer-events-none' : ''}`}
+              />
             </div>
 
             {/* Right Column: Options */}
@@ -770,7 +777,8 @@ export default function App() {
                 <Tooltip className="w-full sm:w-auto" text="Guarda la posición actual de la rejilla como un punto clave en la animación.">
                   <button 
                     onClick={() => {
-                      const newKeyframes = [...keyframes, { lines: { ...lines }, pause: defaultPause }];
+                      const thumbnail = canvasRef.current?.toDataURL('image/jpeg', 0.25);
+                      const newKeyframes = [...keyframes, { lines: { ...lines }, pause: defaultPause, thumbnail }];
                       setKeyframes(newKeyframes);
                       commitHistory(lines, lockedCells, mergedCells, newKeyframes);
                     }} 
@@ -858,7 +866,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    <GridPreview lines={kf.lines} />
+                    <GridPreview lines={kf.lines} thumbnail={kf.thumbnail} aspectRatio={canvasRef.current ? canvasRef.current.width / canvasRef.current.height : 1} />
                     
                     <div className="flex flex-col gap-2">
                       <div className="flex flex-col gap-0.5 text-[9px] text-zinc-400 font-bold">
