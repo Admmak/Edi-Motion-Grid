@@ -27,7 +27,7 @@ export default function App() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [snapToGrid, setSnapToGrid] = useState(false);
   
-  const defaultLines: GridLines = { v: [0.33, 0.66], h: [0.33, 0.66] };
+  const defaultLines: GridLines = { v: [1/3, 2/3], h: [1/3, 2/3] };
   const [lines, setLines] = useState<GridLines>(defaultLines);
   const [keyframes, setKeyframes] = useState<{ lines: GridLines; pause: number }[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -140,8 +140,13 @@ export default function App() {
   const startRecording = async () => {
     if (!canvasRef.current) return;
     exporterRef.current = new VideoExporter(canvasRef.current);
-    await exporterRef.current.start();
-    setIsRecording(true);
+    try {
+      await exporterRef.current.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Error al iniciar la grabación");
+    }
   };
 
   const stopRecording = async () => {
@@ -180,7 +185,15 @@ export default function App() {
     
     if (canvasRef.current) {
       exporterRef.current = new VideoExporter(canvasRef.current);
-      await exporterRef.current.start(false);
+      try {
+        await exporterRef.current.start(false);
+      } catch (err) {
+        console.error(err);
+        alert(err instanceof Error ? err.message : "Error al iniciar la exportación");
+        setIsExporting(false);
+        setIsAnimating(false);
+        return;
+      }
     }
     
     const transitionDuration = 1000; // 1 second per transition

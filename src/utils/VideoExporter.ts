@@ -15,6 +15,10 @@ export class VideoExporter {
   }
 
   async start(autoCapture: boolean = true) {
+    if (typeof VideoEncoder === 'undefined') {
+      throw new Error("VideoEncoder no está disponible. Esto suele ocurrir cuando ejecutas la aplicación desde un archivo local (file://) en lugar de un servidor (http://). Chrome requiere un 'entorno seguro' para codificar vídeo.");
+    }
+
     this.muxer = new Mp4Muxer.Muxer({
       target: new Mp4Muxer.ArrayBufferTarget(),
       video: {

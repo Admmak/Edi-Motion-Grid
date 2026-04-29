@@ -57,6 +57,7 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
 
   useEffect(() => {
     const img = new Image();
+    img.crossOrigin = "anonymous";
     img.onload = () => {
       let targetWidth = resolution ? resolution.width : img.width;
       let targetHeight = resolution ? resolution.height : img.height;
@@ -87,10 +88,19 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
         const gl = canvasRef.current.getContext('webgl', { preserveDrawingBuffer: true });
         if (gl) {
           glRef.current = gl;
-          programInfoRef.current = initWebGL(gl, img);
-          render(lines);
+          try {
+            programInfoRef.current = initWebGL(gl, img);
+            render(lines);
+          } catch (err) {
+            console.error("Error initializing WebGL:", err);
+          }
+        } else {
+          console.error("WebGL not supported");
         }
       }
+    };
+    img.onerror = (err) => {
+      console.error("Error loading image:", err);
     };
     img.src = imageSrc;
   }, [imageSrc, resolution]);
@@ -819,7 +829,19 @@ function initWebGL(gl: WebGLRenderingContext, image: HTMLImageElement) {
   
   // Flip Y to match image orientation
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+  
+  // Use an intermediate canvas to load the image into the texture.
+  // This helps with CORS/Security restrictions when running from file://
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = image.width;
+  tempCanvas.height = image.height;
+  const ctx = tempCanvas.getContext('2d');
+  if (ctx) {
+    ctx.drawImage(image, 0, 0);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tempCanvas);
+  } else {
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+  }
 
   return { program, positionBuffer, texCoordBuffer, indexBuffer, texture };
 }
