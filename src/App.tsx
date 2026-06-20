@@ -484,7 +484,7 @@ export default function App() {
           <Upload className="w-12 h-12 text-zinc-400 mb-4 group-hover:text-app-primary transition-colors" />
           <span className="text-zinc-700 font-bold text-lg">Haz clic para subir una imagen</span>
           <span className="text-zinc-500 text-sm mt-2">Soporta 16:9, 9:16, 1:1, 3:4, 4:5</span>
-          <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+          <input type="file" className="hidden" accept="image/jpeg, image/jpg, image/png, image/webp, image/bmp" onChange={handleImageUpload} />
         </label>
       ) : (
         <div className="flex flex-col items-center w-full max-w-7xl">

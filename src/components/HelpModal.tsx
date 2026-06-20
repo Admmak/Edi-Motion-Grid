@@ -1,6 +1,7 @@
 import React from 'react';
-import { X, HelpCircle, Upload, Grid, Move, Camera, Video, Film, MousePointer2, Lock, Unlock, Layers, RotateCcw, Trash2, Undo2, Redo2, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
+import { X, HelpCircle, Upload, Grid, Move, Camera, Video, Film, MousePointer2, Lock, Unlock, Layers, RotateCcw, Trash2, Undo2, Redo2, ChevronLeft, ChevronRight, Copy, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { generateManualPDF } from '../utils/generatePDF';
 
 interface HelpModalProps {
   isOpen: boolean;
@@ -253,7 +254,16 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t border-zinc-100 bg-zinc-50 flex justify-end">
+            <div className="p-6 border-t border-zinc-100 bg-zinc-50 flex justify-between items-center">
+              <button 
+                onClick={() => {
+                  const doc = generateManualPDF();
+                  doc.save('Manual-Edi-Motion-Grid.pdf');
+                }}
+                className="px-6 py-3 bg-white border border-zinc-200 text-zinc-700 font-bold uppercase tracking-widest text-xs hover:bg-zinc-50 flex items-center gap-2 transition-all active:scale-95 shadow-sm"
+              >
+                <Download className="w-4 h-4" /> PDF Tutorial
+              </button>
               <button 
                 onClick={onClose}
                 className="px-8 py-3 bg-zinc-900 text-white font-black uppercase tracking-widest text-xs hover:bg-zinc-800 transition-all active:scale-95 shadow-lg"

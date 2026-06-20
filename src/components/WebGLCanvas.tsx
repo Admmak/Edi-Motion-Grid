@@ -57,18 +57,29 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
   } | null>(null);
 
   useEffect(() => {
+    if (!imageSrc) return;
+    let isCancelled = false;
+    
+    // We use new Image() instead of DOM img element to avoid iOS Safari DOM loading bugs
     const img = new Image();
-    img.crossOrigin = "anonymous";
+    
+    // Only apply CORS for external URLs, NEVER for blob/data URLs which causes failures on iOS
+    if (!imageSrc.startsWith('blob:') && !imageSrc.startsWith('data:')) {
+      img.crossOrigin = "anonymous";
+    }
+
     img.onload = () => {
-      let targetWidth = resolution ? resolution.width : img.width;
-      let targetHeight = resolution ? resolution.height : img.height;
+      if (isCancelled) return;
+      
+      let targetWidth = resolution ? resolution.width : (img.naturalWidth || img.width);
+      let targetHeight = resolution ? resolution.height : (img.naturalHeight || img.height);
       
       // Ensure even dimensions for video encoding
       targetWidth = Math.floor(targetWidth / 2) * 2;
       targetHeight = Math.floor(targetHeight / 2) * 2;
       
-      // Max size for actual canvas processing (to avoid memory crashes on mobile)
-      const maxCanvasSize = 3000;
+      // Max size for actual canvas processing (to avoid memory crashes on iOS mobile)
+      const maxCanvasSize = 1920;
       if (targetWidth > maxCanvasSize || targetHeight > maxCanvasSize) {
         const clampRatio = Math.min(maxCanvasSize / targetWidth, maxCanvasSize / targetHeight);
         targetWidth = Math.floor((targetWidth * clampRatio) / 2) * 2;
@@ -76,7 +87,7 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
       }
       
       // Calculate display size fitting within max bounds (e.g., 800x800)
-      const maxWidth = 800;
+      const maxWidth = typeof window !== 'undefined' ? Math.min(window.innerWidth - 32, 900) : 900;
       const maxHeight = 800;
       let displayWidth = targetWidth;
       let displayHeight = targetHeight;
@@ -87,6 +98,11 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
         displayHeight *= ratio;
       }
       
+      // Fallback if dimensions completely broke
+      if (displayWidth === 0 || displayHeight === 0) {
+         displayWidth = 300; displayHeight = 300;
+      }
+      
       setDimensions({ width: displayWidth, height: displayHeight });
       
       if (canvasRef.current) {
@@ -94,7 +110,9 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
         canvasRef.current.height = targetHeight;
         onCanvasReady(canvasRef.current);
         
-        const gl = canvasRef.current.getContext('webgl', { preserveDrawingBuffer: true });
+        let gl = canvasRef.current.getContext('webgl', { preserveDrawingBuffer: true });
+        if (!gl) gl = canvasRef.current.getContext('experimental-webgl', { preserveDrawingBuffer: true }) as WebGLRenderingContext;
+        
         if (gl) {
           glRef.current = gl;
           try {
@@ -108,10 +126,19 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
         }
       }
     };
+    
     img.onerror = (err) => {
       console.error("Error loading image:", err);
+      if (!imageSrc.startsWith('blob:')) {
+         // Fallback without crossOrigin if it failed
+         img.crossOrigin = "";
+         img.src = imageSrc;
+      }
     };
+    
     img.src = imageSrc;
+
+    return () => { isCancelled = true; };
   }, [imageSrc, resolution]);
 
   const render = (currentLines: GridLines, currentMerged: MergedCell[] = mergedCells) => {
@@ -519,11 +546,10 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
   return (
     <div 
       ref={containerRef}
-      className={`relative touch-none select-none ${isPointerMode ? 'cursor-crosshair' : ''} ${className}`}
+      className={`relative touch-none select-none bg-zinc-50 ${isPointerMode ? 'cursor-crosshair' : ''} ${className}`}
       style={{ 
         width: '100%', 
-        maxWidth: dimensions.width > 0 ? dimensions.width : 'none',
-        aspectRatio: dimensions.width && dimensions.height ? `${dimensions.width} / ${dimensions.height}` : 'auto'
+        maxWidth: dimensions.width > 0 ? dimensions.width : 'none'
       }}
       onPointerDown={handleContainerPointerDown}
       onPointerMove={handlePointerMove}
@@ -531,7 +557,11 @@ export default function WebGLCanvas({ imageSrc, onCanvasReady, snapToGrid = fals
       onPointerCancel={handlePointerUp}
       onPointerLeave={() => setMousePos(null)}
     >
-      <canvas ref={canvasRef} className="absolute inset-0 block w-full h-full" />
+      {/* Bulletproof aspect ratio enforcement for iOS Safari */}
+      {dimensions.width > 0 && dimensions.height > 0 && (
+        <div style={{ paddingTop: `${(dimensions.height / dimensions.width) * 100}%` }} />
+      )}
+      <canvas ref={canvasRef} className="absolute inset-0 block w-full h-full" style={{ visibility: dimensions.width > 0 ? 'visible' : 'hidden' }} />
       
       {/* Magnifying Glass */}
       {isPointerMode && mousePos && dimensions.width > 0 && (
@@ -845,26 +875,34 @@ function initWebGL(gl: WebGLRenderingContext, image: HTMLImageElement) {
   
   // Use an intermediate canvas to load the image into the texture.
   // This helps with CORS/Security restrictions when running from file://
+  // And prevents WebGL texture creation crashes on iOS Safari with direct HTMLImageElement usage.
   const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
-  let uploadWidth = image.width;
-  let uploadHeight = image.height;
+  const safeMaxSize = Math.min(maxTextureSize, 1920); 
   
-  if (uploadWidth > maxTextureSize || uploadHeight > maxTextureSize) {
-    const ratio = Math.min(maxTextureSize / uploadWidth, maxTextureSize / uploadHeight);
+  let uploadWidth = image.naturalWidth || image.width;
+  let uploadHeight = image.naturalHeight || image.height;
+  
+  if (uploadWidth > safeMaxSize || uploadHeight > safeMaxSize) {
+    const ratio = Math.min(safeMaxSize / uploadWidth, safeMaxSize / uploadHeight);
     uploadWidth = Math.floor(uploadWidth * ratio);
     uploadHeight = Math.floor(uploadHeight * ratio);
   }
 
+  // Always use tempCanvas to avoid direct image upload issues on iOS
   const tempCanvas = document.createElement('canvas');
   tempCanvas.width = uploadWidth;
   tempCanvas.height = uploadHeight;
-  const ctx = tempCanvas.getContext('2d');
+  const ctx = tempCanvas.getContext('2d', { willReadFrequently: true });
   if (ctx) {
     ctx.drawImage(image, 0, 0, uploadWidth, uploadHeight);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tempCanvas);
   } else {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
   }
+  
+  // Free memory
+  tempCanvas.width = 0;
+  tempCanvas.height = 0;
 
   return { program, positionBuffer, texCoordBuffer, indexBuffer, texture };
 }
